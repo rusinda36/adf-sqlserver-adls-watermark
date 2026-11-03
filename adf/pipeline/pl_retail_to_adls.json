@@ -1,0 +1,194 @@
+{
+  "name": "pl_retail_to_adls",
+  "properties": {
+    "activities": [
+      {
+        "name": "ReadWatermark",
+        "type": "Lookup",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "source": {
+            "type": "SqlServerSource",
+            "sqlReaderQuery": "SELECT LastLoadBatchID\nFROM etl.AdfWatermark\nWHERE PipelineName = 'retail_to_adls';",
+            "queryTimeout": "02:00:00",
+            "partitionOption": "None"
+          },
+          "dataset": {
+            "referenceName": "ds_sql_retail",
+            "type": "DatasetReference"
+          }
+        }
+      },
+      {
+        "name": "ReadUpperBound",
+        "type": "Lookup",
+        "dependsOn": [
+          {
+            "activity": "ReadWatermark",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "source": {
+            "type": "SqlServerSource",
+            "sqlReaderQuery": {
+              "value": "@concat(\n  'SELECT COALESCE(MAX(LoadBatchID), ',\n  string(activity('ReadWatermark').output.firstRow.LastLoadBatchID),\n  ') AS UpperLoadBatchID FROM (\n     SELECT TOP (10) LoadBatchID\n     FROM etl.LoadBatch\n     WHERE Status = ''Completed''\n       AND LoadBatchID > ',\n  string(activity('ReadWatermark').output.firstRow.LastLoadBatchID),\n  ' ORDER BY LoadBatchID\n   ) AS NextBatches'\n)",
+              "type": "Expression"
+            },
+            "queryTimeout": "02:00:00",
+            "partitionOption": "None"
+          },
+          "dataset": {
+            "referenceName": "ds_sql_retail",
+            "type": "DatasetReference"
+          }
+        }
+      },
+      {
+        "name": "HasNewData",
+        "type": "IfCondition",
+        "dependsOn": [
+          {
+            "activity": "ReadUpperBound",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "userProperties": [],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(\n  int(activity('ReadUpperBound').output.firstRow.UpperLoadBatchID),\n  int(activity('ReadWatermark').output.firstRow.LastLoadBatchID)\n)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "name": "CopyRetailToADLS",
+              "type": "Copy",
+              "dependsOn": [],
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureOutput": false,
+                "secureInput": false
+              },
+              "userProperties": [],
+              "typeProperties": {
+                "source": {
+                  "type": "SqlServerSource",
+                  "sqlReaderQuery": {
+                    "value": "@concat(\n  'SELECT r.*\n   FROM stg.RetailTransaction AS r\n   INNER JOIN etl.LoadBatch AS b\n     ON r.SourceFileID = b.SourceFileID\n    AND r.SourceSheet = b.SourceSheet\n    AND r.SourceRowNumber BETWEEN b.StartRowNumber AND b.EndRowNumber\n   WHERE b.Status = ''Completed''\n     AND b.LoadBatchID > ',\n  string(activity('ReadWatermark').output.firstRow.LastLoadBatchID),\n  ' AND b.LoadBatchID <= ',\n  string(activity('ReadUpperBound').output.firstRow.UpperLoadBatchID)\n)",
+                    "type": "Expression"
+                  },
+                  "queryTimeout": "02:00:00",
+                  "partitionOption": "None"
+                },
+                "sink": {
+                  "type": "ParquetSink",
+                  "storeSettings": {
+                    "type": "AzureBlobFSWriteSettings"
+                  },
+                  "formatSettings": {
+                    "type": "ParquetWriteSettings"
+                  }
+                },
+                "enableStaging": false,
+                "translator": {
+                  "type": "TabularTranslator",
+                  "typeConversion": true,
+                  "typeConversionSettings": {
+                    "allowDataTruncation": true,
+                    "treatBooleanAsNumber": false
+                  }
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "ds_sql_retail",
+                  "type": "DatasetReference"
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "ds_adls_retail",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "pFileName": {
+                      "value": "@concat(\n  'batches_',\n  string(add(int(activity('ReadWatermark').output.firstRow.LastLoadBatchID), 1)),\n  '_',\n  string(activity('ReadUpperBound').output.firstRow.UpperLoadBatchID),\n  '.parquet'\n)",
+                      "type": "Expression"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "SaveWatermark",
+              "type": "SqlServerStoredProcedure",
+              "dependsOn": [
+                {
+                  "activity": "CopyRetailToADLS",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureOutput": false,
+                "secureInput": false
+              },
+              "userProperties": [],
+              "typeProperties": {
+                "storedProcedureName": "[etl].[AdvanceAdfWatermark]",
+                "storedProcedureParameters": {
+                  "ExpectedBatchID": {
+                    "value": {
+                      "value": "@activity('ReadWatermark').output.firstRow.LastLoadBatchID",
+                      "type": "Expression"
+                    },
+                    "type": "Int32"
+                  },
+                  "NewBatchID": {
+                    "value": {
+                      "value": "@activity('ReadUpperBound').output.firstRow.UpperLoadBatchID",
+                      "type": "Expression"
+                    },
+                    "type": "Int32"
+                  }
+                }
+              },
+              "linkedServiceName": {
+                "referenceName": "ls_sql_retailsource",
+                "type": "LinkedServiceReference"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "concurrency": 1,
+    "annotations": []
+  },
+  "type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,30 @@
+{
+  "name": "ds_adls_retail",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_adls_raw",
+      "type": "LinkedServiceReference"
+    },
+    "parameters": {
+      "pFileName": {
+        "type": "string"
+      }
+    },
+    "annotations": [],
+    "type": "Parquet",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobFSLocation",
+        "fileName": {
+          "value": "@dataset().pFileName",
+          "type": "Expression"
+        },
+        "folderPath": "retail",
+        "fileSystem": "raw"
+      },
+      "compressionCodec": "snappy"
+    },
+    "schema": []
+  },
+  "type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,73 @@
+{
+  "name": "ds_sql_retail",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_sql_retailsource",
+      "type": "LinkedServiceReference"
+    },
+    "annotations": [],
+    "type": "SqlServerTable",
+    "schema": [
+      {
+        "name": "SourceFileID",
+        "type": "int",
+        "precision": 10
+      },
+      {
+        "name": "SourceSheet",
+        "type": "varchar"
+      },
+      {
+        "name": "SourceRowNumber",
+        "type": "int",
+        "precision": 10
+      },
+      {
+        "name": "Invoice",
+        "type": "nvarchar"
+      },
+      {
+        "name": "StockCode",
+        "type": "nvarchar"
+      },
+      {
+        "name": "Description",
+        "type": "nvarchar"
+      },
+      {
+        "name": "Quantity",
+        "type": "int",
+        "precision": 10
+      },
+      {
+        "name": "InvoiceDate",
+        "type": "datetime2",
+        "scale": 0
+      },
+      {
+        "name": "Price",
+        "type": "decimal",
+        "precision": 18,
+        "scale": 4
+      },
+      {
+        "name": "CustomerID",
+        "type": "nvarchar"
+      },
+      {
+        "name": "Country",
+        "type": "nvarchar"
+      },
+      {
+        "name": "LoadedAt",
+        "type": "datetime2",
+        "scale": 3
+      }
+    ],
+    "typeProperties": {
+      "schema": "stg",
+      "table": "RetailTransaction"
+    }
+  },
+  "type": "Microsoft.DataFactory/factories/datasets"
+}
