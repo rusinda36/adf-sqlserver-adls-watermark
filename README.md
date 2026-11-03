@@ -4,7 +4,7 @@ This project copies data from a local SQL Server database to Azure Data Lake Sto
 
 The question I wanted to test was simple: **what happens if the file reaches storage, but the pipeline fails before recording its progress?**
 
-The source is Online Retail II data already loaded into SQL Server by my project "Restart-Safe ETL with Python and SQL Server"([https://github.com/rusinda36/restart-safe-etl]).
+The source is Online Retail II data already loaded into SQL Server by my project "Restart-Safe ETL with Python and SQL Server"(https://github.com/rusinda36/restart-safe-etl).
 
 ## How it works
 
