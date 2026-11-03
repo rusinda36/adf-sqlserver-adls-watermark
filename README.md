@@ -1,5 +1,4 @@
-# P-003: SQL Server to ADLS with an ADF batch watermark
-
+# Incremental SQL Server to ADLS Loading with Azure Data Factory
 A small lab extending an existing restart-safe Online Retail II loader. Azure Data Factory reads completed SQL Server batches, writes each selected range to one Snappy Parquet file in ADLS Gen2, then advances a separate SQL checkpoint.
 
 ## Files
